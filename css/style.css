@@ -1,0 +1,396 @@
+/* ================================================================
+   css/style.css — Dark-mode Market Dashboard
+   ================================================================ */
+
+/* ── Custom properties ─────────────────────────────────────────── */
+:root {
+  --bg-primary:    #0d1117;
+  --bg-secondary:  #161b22;
+  --bg-card:       #1c2128;
+  --bg-card-hover: #22272e;
+
+  --border:        #30363d;
+  --border-subtle: #21262d;
+
+  --text-primary:  #e6edf3;
+  --text-secondary:#8b949e;
+  --text-muted:    #6e7681;
+
+  --positive:      #3fb950;
+  --positive-bg:   rgba(63, 185, 80, 0.12);
+  --negative:      #f85149;
+  --negative-bg:   rgba(248, 81, 73, 0.12);
+  --neutral:       #58a6ff;
+  --neutral-bg:    rgba(88, 166, 255, 0.12);
+  --warning:       #d29922;
+
+  --badge-index:     rgba(88, 166, 255, 0.18);
+  --badge-commodity: rgba(210, 153, 34, 0.18);
+  --badge-forex:     rgba(140, 100, 255, 0.18);
+
+  --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+
+  --radius:    10px;
+  --radius-sm: 5px;
+  --radius-xs: 3px;
+
+  --shadow:       0 2px 8px rgba(0, 0, 0, 0.45);
+  --shadow-hover: 0 6px 20px rgba(0, 0, 0, 0.65);
+
+  --transition: 0.2s ease;
+}
+
+/* ── Reset / base ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 15px; scroll-behavior: smooth; }
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── App shell ─────────────────────────────────────────────────── */
+.app {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 0 24px 48px;
+}
+
+/* ── Header ─────────────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 0 24px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.header-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.header-subtitle {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Status pill */
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.status-dot.live    { background: var(--positive); animation: pulse 2.2s infinite; }
+.status-dot.loading { background: var(--warning);  animation: spin-dot 1s linear infinite; }
+.status-dot.error   { background: var(--negative); }
+
+.status-text        { color: var(--text-secondary); }
+.status-text.live   { color: var(--positive); }
+.status-text.error  { color: var(--negative); }
+
+.header-meta {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.separator { opacity: 0.4; }
+
+/* ── Section ─────────────────────────────────────────────────────── */
+.section {
+  margin-top: 36px;
+}
+
+.section-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.section-source {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+/* ── Cards grid ──────────────────────────────────────────────────── */
+.cards-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.cards-grid--4 { grid-template-columns: repeat(4, 1fr); }
+.cards-grid--3 { grid-template-columns: repeat(3, 1fr); }
+
+/* ── Card ─────────────────────────────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px 14px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: background var(--transition), box-shadow var(--transition),
+              border-color var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.card:hover {
+  background: var(--bg-card-hover);
+  box-shadow: var(--shadow-hover);
+  border-color: #444c56;
+}
+
+/* top accent line */
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: transparent;
+  transition: background var(--transition);
+}
+.card.positive::before { background: var(--positive); }
+.card.negative::before { background: var(--negative); }
+
+/* ── Card header row ───────────────────────────────────────────── */
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Badges */
+.card-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+}
+
+.card-badge.index     { background: var(--badge-index);     color: var(--neutral); }
+.card-badge.commodity { background: var(--badge-commodity);  color: var(--warning); }
+.card-badge.forex     { background: var(--badge-forex);      color: #9d7cff; }
+
+/* ── Price ─────────────────────────────────────────────────────── */
+.card-price {
+  font-family: var(--font-mono);
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-top: 4px;
+  min-height: 1.8rem;
+}
+
+/* ── TRY equivalent ────────────────────────────────────────────── */
+.card-try {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+  min-height: 1em;
+}
+
+/* ── Change badge ──────────────────────────────────────────────── */
+.card-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  align-self: flex-start;
+  min-width: 72px;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.card-change.positive { background: var(--positive-bg); color: var(--positive); }
+.card-change.negative { background: var(--negative-bg); color: var(--negative); }
+.card-change.neutral  { background: var(--neutral-bg);  color: var(--neutral);  }
+
+/* ── Card footer meta (unit / region) ─────────────────────────── */
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+}
+
+.card-unit,
+.card-region {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* ── Loading skeleton ───────────────────────────────────────────── */
+.card.loading .card-price,
+.card.loading .card-try,
+.card.loading .card-change {
+  background: linear-gradient(
+    90deg,
+    var(--bg-card) 25%,
+    #2d333b 50%,
+    var(--bg-card) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton 1.6s ease-in-out infinite;
+  border-radius: var(--radius-xs);
+  color: transparent !important;
+  user-select: none;
+}
+
+.card.loading .card-price  { min-width: 120px; min-height: 1.8rem; }
+.card.loading .card-try    { min-width: 90px;  min-height: 0.9rem; }
+.card.loading .card-change { min-width: 65px;  min-height: 1.1rem; }
+
+/* ── Error state ────────────────────────────────────────────────── */
+.card.error {
+  border-color: rgba(248, 81, 73, 0.3);
+}
+
+.card.error .card-price {
+  color: var(--negative);
+  font-size: 0.85rem;
+}
+
+/* ── Flash animations on price update ─────────────────────────── */
+@keyframes flash-green {
+  0%, 100% { background-color: var(--bg-card); }
+  40%       { background-color: rgba(63, 185, 80, 0.13); }
+}
+
+@keyframes flash-red {
+  0%, 100% { background-color: var(--bg-card); }
+  40%       { background-color: rgba(248, 81, 73, 0.13); }
+}
+
+.card.flash-green { animation: flash-green 0.7s ease; }
+.card.flash-red   { animation: flash-red   0.7s ease; }
+
+/* ── Keyframes ──────────────────────────────────────────────────── */
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0   rgba(63, 185, 80, 0.7); }
+  70%  { box-shadow: 0 0 0 6px rgba(63, 185, 80, 0);   }
+  100% { box-shadow: 0 0 0 0   rgba(63, 185, 80, 0);   }
+}
+
+@keyframes spin-dot {
+  from { opacity: 1;   }
+  50%  { opacity: 0.3; }
+  to   { opacity: 1;   }
+}
+
+@keyframes skeleton {
+  0%   { background-position:  200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Footer ─────────────────────────────────────────────────────── */
+.footer {
+  margin-top: 48px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.7;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────── */
+
+/* ≤ 1100px : 3+2+2 */
+@media (max-width: 1100px) {
+  .cards-grid--4 { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ≤ 860px : 2+2+2 */
+@media (max-width: 860px) {
+  .cards-grid--4 { grid-template-columns: repeat(2, 1fr); }
+  .cards-grid--3 { grid-template-columns: repeat(2, 1fr); }
+
+  .header { padding: 16px 0 20px; }
+  .header-title { font-size: 1.25rem; }
+}
+
+/* ≤ 560px : 1 column */
+@media (max-width: 560px) {
+  .app { padding: 0 14px 36px; }
+  .cards-grid--4,
+  .cards-grid--3 { grid-template-columns: 1fr; }
+
+  .header-right { width: 100%; }
+  .card-price { font-size: 1.3rem; }
+}

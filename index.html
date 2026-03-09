@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Market Dashboard</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <div class="app">
+
+    <!-- ── Header ──────────────────────────────────────────── -->
+    <header class="header">
+      <div class="header-left">
+        <h1 class="header-title">Market Dashboard</h1>
+        <span class="header-subtitle">Global Indices · Commodities · Forex</span>
+      </div>
+      <div class="header-right">
+        <div class="status-pill" id="status-pill">
+          <span class="status-dot" id="status-dot"></span>
+          <span class="status-text" id="status-text">Connecting…</span>
+        </div>
+        <div class="header-meta">
+          <span id="last-updated">--</span>
+          <span class="separator">·</span>
+          <span id="countdown">--</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ── Main content ─────────────────────────────────────── -->
+    <main class="main">
+
+      <!-- Global Indices -->
+      <section class="section">
+        <div class="section-header">
+          <h2 class="section-title">Global Indices</h2>
+          <span class="section-source">via Stooq</span>
+        </div>
+        <div class="cards-grid cards-grid--4" id="indices-grid"></div>
+      </section>
+
+      <!-- Commodities -->
+      <section class="section">
+        <div class="section-header">
+          <h2 class="section-title">Commodities</h2>
+          <span class="section-source">via Stooq · USD prices</span>
+        </div>
+        <div class="cards-grid cards-grid--3" id="commodities-grid"></div>
+      </section>
+
+      <!-- Forex Pairs -->
+      <section class="section">
+        <div class="section-header">
+          <h2 class="section-title">Forex Pairs</h2>
+          <span class="section-source">via Frankfurter API</span>
+        </div>
+        <div class="cards-grid cards-grid--4" id="forex-grid"></div>
+      </section>
+
+    </main>
+
+    <footer class="footer">
+      Prices for informational purposes only · Intraday change shown from market open ·
+      Forex rates from European Central Bank via Frankfurter API
+    </footer>
+
+  </div>
+
+  <!-- config must load before app -->
+  <script src="data/config.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
