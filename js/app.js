@@ -1,28 +1,40 @@
 // ============================================================
 //  MARKETWATCH — app.js
-//  Builds TradingView mini-symbol-overview widgets via JS.
-//  No inline JSON in HTML = no linter false-positives.
+//  Builds TradingView symbol-overview widgets via JS.
 // ============================================================
 
 'use strict';
 
 // ── Widget config base ────────────────────────────────────────
 const WIDGET_BASE = {
-  width:                   '100%',
-  height:                  220,
-  locale:                  'en',
-  dateRange:               '1D',
-  colorTheme:              'dark',
-  trendLineColor:          'rgba(0, 229, 255, 1)',
-  underLineColor:          'rgba(0, 229, 255, 0.1)',
-  underLineBottomColor:    'rgba(0, 229, 255, 0)',
-  isTransparent:           true,
-  autosize:                false,
-  largeChartUrl:           '',
+  chartOnly:           false,
+  width:               '100%',
+  height:              220,
+  locale:              'en',
+  colorTheme:          'dark',
+  autosize:            false,
+  showVolume:          false,
+  showMA:              false,
+  hideDateRanges:      false,
+  hideMarketStatus:    false,
+  hideSymbolLogo:      false,
+  scalePosition:       'right',
+  scaleMode:           'Normal',
+  fontFamily:          'Azeret Mono',
+  fontSize:            '10',
+  noTimeScale:         false,
+  valuesTracking:      '1',
+  changeMode:          'price-and-percent',
+  trendLineColor:      'rgba(0, 229, 255, 1)',
+  underLineColor:      'rgba(0, 229, 255, 0.1)',
+  underLineBottomColor:'rgba(0, 229, 255, 0)',
+  isTransparent:       true,
 };
 
+const WIDGET_URL = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-overview.js';
+
 // ── Create one TradingView widget card ───────────────────────
-function createWidget(symbol, delay) {
+function createWidget(name, symbol, delay) {
   const card = document.createElement('div');
   card.className = 'card';
   card.style.animationDelay = delay + 'ms';
@@ -35,9 +47,12 @@ function createWidget(symbol, delay) {
 
   const script = document.createElement('script');
   script.type = 'text/javascript';
-  script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js';
+  script.src = WIDGET_URL;
   script.async = true;
-  script.textContent = JSON.stringify({ ...WIDGET_BASE, symbol });
+  script.textContent = JSON.stringify({
+    ...WIDGET_BASE,
+    symbols: [[name, symbol]],
+  });
 
   container.appendChild(inner);
   container.appendChild(script);
@@ -45,12 +60,12 @@ function createWidget(symbol, delay) {
   return card;
 }
 
-// ── Render a list of symbols into a grid container ───────────
-function renderGrid(gridId, symbols) {
+// ── Render a list of assets into a grid container ────────────
+function renderGrid(gridId, assets) {
   const grid = document.getElementById(gridId);
   if (!grid) return;
-  symbols.forEach((symbol, i) => {
-    grid.appendChild(createWidget(symbol, i * 50));
+  assets.forEach(({ name, symbol }, i) => {
+    grid.appendChild(createWidget(name, symbol, i * 50));
   });
 }
 
@@ -69,7 +84,7 @@ function startClock() {
 document.addEventListener('DOMContentLoaded', () => {
   startClock();
 
-  renderGrid('indices-grid',    CONFIG.INDICES.map(a => a.symbol));
-  renderGrid('commodities-grid', CONFIG.COMMODITIES.map(a => a.symbol));
-  renderGrid('forex-grid',      CONFIG.FOREX.map(a => a.symbol));
+  renderGrid('indices-grid',     CONFIG.INDICES);
+  renderGrid('commodities-grid', CONFIG.COMMODITIES);
+  renderGrid('forex-grid',       CONFIG.FOREX);
 });
