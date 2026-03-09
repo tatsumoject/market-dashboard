@@ -1,407 +1,321 @@
-// ================================================================
-// js/app.js — Market Dashboard · Data · Rendering · Controller
-// ================================================================
+// ============================================================
+//  MARKET DASHBOARD — app.js
+//  Data sources:
+//    • Stooq CSV (no CORS issues, free, no key)  → indices + commodities
+//    • Frankfurter API (free, no key)            → forex rates
+// ============================================================
 
-'use strict';
+const ASSETS = {
+  indices: [
+    { symbol: '^SPX',    label: 'S&P 500',       currency: 'USD', flag: '🇺🇸' },
+    { symbol: '^NDX',    label: 'NASDAQ 100',     currency: 'USD', flag: '🇺🇸' },
+    { symbol: '^NKX',    label: 'Nikkei 225',     currency: 'JPY', flag: '🇯🇵' },
+    { symbol: '^STX',    label: 'Euro Stoxx 50',  currency: 'EUR', flag: '🇪🇺' },
+    { symbol: '^DAX',    label: 'DAX',            currency: 'EUR', flag: '🇩🇪' },
+    { symbol: '^FTM',    label: 'FTSE 100',       currency: 'GBP', flag: '🇬🇧' },
+    { symbol: 'XU100.IS',label: 'BIST 100',       currency: 'TRY', flag: '🇹🇷' },
+    { symbol: 'IMOEX.ME',label: 'MOEX Russia',    currency: 'RUB', flag: '🇷🇺' },
+  ],
+  commodities: [
+    { symbol: 'XAUUSD',  label: 'Gold',           currency: 'USD', flag: '✨' },
+    { symbol: 'XAGUSD',  label: 'Silver',         currency: 'USD', flag: '🪙' },
+    { symbol: 'LCOUSD',  label: 'Brent Oil',      currency: 'USD', flag: '🛢️' },
+    { symbol: 'XPTUSD',  label: 'Platinum',       currency: 'USD', flag: '💎' },
+    { symbol: 'HGUSD',   label: 'Copper',         currency: 'USD', flag: '🟤' },
+    { symbol: 'ALUUSD',  label: 'Aluminum',       currency: 'USD', flag: '⚙️' },
+  ],
+  forex: [
+    { from: 'USD', to: 'TRY', label: 'USD / TRY' },
+    { from: 'EUR', to: 'TRY', label: 'EUR / TRY' },
+    { from: 'EUR', to: 'USD', label: 'EUR / USD' },
+    { from: 'GBP', to: 'USD', label: 'GBP / USD' },
+  ]
+};
 
-// ================================================================
-// SECTION 1 — DataService
-// Handles all API communication. Returns plain data objects.
-// ================================================================
+// FX rates cache (fetched once, used for TRY conversions)
+let fxRates = {};
+let refreshTimer = null;
 
-const DataService = {
+// ── Clock ────────────────────────────────────────────────────
+function startClock() {
+  function tick() {
+    const now = new Date();
+    const el = document.getElementById('clock');
+    if (el) el.textContent = now.toLocaleTimeString('tr-TR', { hour12: false });
+  }
+  tick();
+  setInterval(tick, 1000);
+}
 
-  // Cached forex rates so TRY conversions work across the refresh.
-  _rates: null,
+// ── Format helpers ───────────────────────────────────────────
+function fmt(n, decimals = 2) {
+  if (n == null || isNaN(n)) return '—';
+  if (Math.abs(n) >= 100000) return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  if (Math.abs(n) >= 1000)   return n.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  if (Math.abs(n) >= 10)     return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: 4 });
+}
 
-  // ── Generic fetch with automatic CORS-proxy fallback ─────────
-  // Tries the URL directly first. If the browser blocks it (CORS
-  // TypeError) or Yahoo returns a non-2xx status, it retries
-  // transparently through corsproxy.io.
-  async _get(url) {
-    try {
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    } catch (directErr) {
-      console.warn('[DataService] Direct fetch failed, trying proxy:', directErr.message);
-      const proxied = `${CONFIG.CORS_PROXY}${encodeURIComponent(url)}`;
-      const res = await fetch(proxied, { cache: 'no-store' });
-      if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
-      return await res.json();
-    }
-  },
+function fmtChange(pct) {
+  if (pct == null || isNaN(pct)) return { text: '—', cls: 'neutral' };
+  const sign = pct >= 0 ? '+' : '';
+  return {
+    text: `${sign}${pct.toFixed(2)}%`,
+    cls: pct > 0.005 ? 'up' : pct < -0.005 ? 'down' : 'neutral'
+  };
+}
 
-  // ── Yahoo Finance ─────────────────────────────────────────────
-  // Fetches a batch of symbols in one call. Returns the result[]
-  // array from quoteResponse. Each item contains:
-  //   regularMarketPrice        — current price (number)
-  //   regularMarketChangePercent — daily % change vs prev close
-  //   currency                  — native currency string
-  async fetchYahoo(symbols) {
-    const params = new URLSearchParams({
-      symbols:   symbols.join(','),
-      formatted: 'false',          // raw numbers, not {raw,fmt} objects
-      lang:      'en-US',
-      region:    'US',
-    });
-    const url  = `${CONFIG.YAHOO_BASE}?${params}`;
-    const data = await this._get(url);
-    return data?.quoteResponse?.result ?? [];
-  },
+function currencySymbol(cur) {
+  const map = { USD: '$', EUR: '€', GBP: '£', TRY: '₺', JPY: '¥', RUB: '₽' };
+  return map[cur] || (cur + ' ');
+}
 
-  // ── Frankfurter (forex) ──────────────────────────────────────
-  // Single call from USD base. Frankfurter has native CORS support
-  // so no proxy is needed. Returns a pre-computed rates object.
-  async fetchForex() {
-    const url  = `${CONFIG.FRANKFURTER_BASE}/latest?from=USD&to=TRY,EUR,GBP,JPY`;
-    const res  = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`Frankfurter ${res.status}`);
-    const json = await res.json();
-    const r    = json.rates; // { TRY, EUR, GBP, JPY } — all per 1 USD
+// ── Stooq CSV fetch ──────────────────────────────────────────
+// Stooq returns CSV with columns: Date,Open,High,Low,Close,Volume
+// We fetch 5 days to get today + yesterday for % change
+async function fetchStooq(symbol) {
+  const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(symbol)}&i=d`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    const lines = text.trim().split('\n').filter(l => l && !l.startsWith('Date'));
+    if (lines.length < 1) throw new Error('No data');
 
-    const usdTry = r.TRY;
-    const rates  = {
-      usdTry,
-      eurTry: usdTry / r.EUR,  // cross-rate: 1 EUR → TRY
-      gbpTry: usdTry / r.GBP,  // cross-rate: 1 GBP → TRY
-      jpyTry: usdTry / r.JPY,  // cross-rate: 1 JPY → TRY
-
-      // Keyed by "BASE/QUOTE" for forex card lookup
-      'USD/TRY': usdTry,
-      'EUR/TRY': usdTry / r.EUR,
-      'EUR/USD': 1 / r.EUR,
-      'GBP/USD': 1 / r.GBP,
+    // Parse last two rows for price + change
+    const parse = (line) => {
+      const cols = line.split(',');
+      return parseFloat(cols[4]); // Close price
     };
 
-    this._rates = rates;
-    return rates;
-  },
+    const latest = parse(lines[lines.length - 1]);
+    const prev   = lines.length >= 2 ? parse(lines[lines.length - 2]) : null;
+    const changePct = prev ? ((latest - prev) / prev) * 100 : null;
 
-  // ── Currency → TRY ───────────────────────────────────────────
-  // Returns null for unsupported currencies (RUB, etc.).
-  toTRY(price, currency) {
-    if (price == null || !this._rates) return null;
-    const r = this._rates;
-    switch (currency) {
-      case 'USD': return price * r.usdTry;
-      case 'EUR': return price * r.eurTry;
-      case 'GBP': return price * r.gbpTry;
-      case 'JPY': return price * r.jpyTry;
-      case 'TRY': return price;
-      default:    return null;
-    }
-  },
-};
+    return { price: latest, changePct };
+  } catch (e) {
+    console.warn(`Stooq error for ${symbol}:`, e.message);
+    return { price: null, changePct: null };
+  }
+}
 
-// ================================================================
-// SECTION 2 — Formatter
-// Pure utility functions for numbers and display strings.
-// ================================================================
+// ── Frankfurter forex ────────────────────────────────────────
+async function fetchForex() {
+  try {
+    // Get today's rates
+    const today = await fetch('https://api.frankfurter.app/latest?from=USD&to=TRY,EUR,GBP,JPY,RUB');
+    const todayData = await today.json();
 
-const Formatter = {
+    // Get yesterday's rates for % change
+    const yesterday = await fetch('https://api.frankfurter.app/latest?from=USD&to=TRY,EUR,GBP,JPY,RUB&date=prev');
+    const yData = await yesterday.json().catch(() => null);
 
-  num(n, decimals = 2) {
-    if (n == null || !isFinite(n)) return '--';
-    return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }).format(n);
-  },
+    // Store USD-based rates for TRY conversion
+    fxRates = { ...todayData.rates, USD: 1 };
 
-  // Smart decimal count based on price magnitude.
-  price(n) {
-    if (n == null || !isFinite(n)) return '--';
-    const dec = n >= 10000 ? 0 : n >= 1000 ? 1 : n >= 10 ? 2 : 4;
-    return '$' + this.num(n, dec);
-  },
+    // Build forex pairs
+    const results = {};
+    const pairs = [
+      { from: 'USD', to: 'TRY' },
+      { from: 'EUR', to: 'TRY' },
+      { from: 'EUR', to: 'USD' },
+      { from: 'GBP', to: 'USD' },
+    ];
 
-  // Yahoo's regularMarketChangePercent is already in % form
-  // (e.g. 0.74 means +0.74%). Arrow + sign + 2 dp.
-  change(pct) {
-    if (pct == null || !isFinite(pct)) return '--';
-    const arrow = pct >= 0 ? '▲' : '▼';
-    const sign  = pct >= 0 ? '+' : '';
-    return `${arrow} ${sign}${pct.toFixed(2)}%`;
-  },
+    for (const pair of pairs) {
+      const key = `${pair.from}/${pair.to}`;
+      let price = null;
+      let changePct = null;
 
-  try_(n) {
-    if (n == null || !isFinite(n)) return '--';
-    return `${this.num(n, 0)} TRY`;
-  },
-};
-
-// ================================================================
-// SECTION 3 — Renderer
-// Builds and mutates DOM. Never fetches data.
-// ================================================================
-
-const Renderer = {
-
-  // ── Skeleton card builders ─────────────────────────────────
-
-  buildIndexCard(asset) {
-    const card = document.createElement('div');
-    card.className = 'card loading';
-    card.id = `card-${asset.id}`;
-    card.innerHTML = `
-      <div class="card-header">
-        <span class="card-name">${asset.name}</span>
-        <span class="card-badge index">${asset.region}</span>
-      </div>
-      <div class="card-price"></div>
-      <div class="card-try"></div>
-      <div class="card-footer">
-        <span class="card-change neutral"></span>
-        <span class="card-region">pts</span>
-      </div>`;
-    return card;
-  },
-
-  buildCommodityCard(asset) {
-    const card = document.createElement('div');
-    card.className = 'card loading';
-    card.id = `card-${asset.id}`;
-    card.innerHTML = `
-      <div class="card-header">
-        <span class="card-name">${asset.name}</span>
-        <span class="card-badge commodity">USD</span>
-      </div>
-      <div class="card-price"></div>
-      <div class="card-try"></div>
-      <div class="card-footer">
-        <span class="card-change neutral"></span>
-        <span class="card-unit">${asset.unit}</span>
-      </div>`;
-    return card;
-  },
-
-  buildForexCard(pair) {
-    const card = document.createElement('div');
-    card.className = 'card loading';
-    card.id = `card-${pair.id}`;
-    card.innerHTML = `
-      <div class="card-header">
-        <span class="card-name">${pair.name}</span>
-        <span class="card-badge forex">FX</span>
-      </div>
-      <div class="card-price"></div>
-      <div class="card-try"></div>
-      <div class="card-footer">
-        <span class="card-change neutral" style="visibility:hidden"></span>
-        <span class="card-unit">${pair.base}&nbsp;base</span>
-      </div>`;
-    return card;
-  },
-
-  // ── Populate cards with live data ──────────────────────────
-
-  updateIndexCard(asset, quote) {
-    const card = this._card(asset.id);
-    if (!card) return;
-
-    const price  = quote.regularMarketPrice          ?? null;
-    const pct    = quote.regularMarketChangePercent   ?? null;
-    const tryVal = DataService.toTRY(price, asset.currency);
-
-    // For TRY-native indices (BIST100) the card-try row shows
-    // the USD equivalent instead of a TRY repeat.
-    let tryText;
-    if (asset.currency === 'TRY') {
-      const usdVal = DataService._rates
-        ? price / DataService._rates.usdTry
-        : null;
-      tryText = usdVal != null ? `≈ ${Formatter.price(usdVal)}` : '';
-    } else if (asset.currency === 'RUB') {
-      tryText = 'TRY n/a';   // Frankfurter dropped RUB post-2022
-    } else {
-      tryText = tryVal != null ? Formatter.try_(tryVal) : '--';
+      if (pair.from === 'USD') {
+        price = todayData.rates[pair.to];
+        if (yData) {
+          const prev = yData.rates[pair.to];
+          changePct = prev ? ((price - prev) / prev) * 100 : null;
+        }
+      } else {
+        // Cross rate: EUR/TRY = (USD/TRY) / (USD/EUR)
+        const usdTo   = todayData.rates[pair.to];
+        const usdFrom = todayData.rates[pair.from];
+        price = usdTo / usdFrom;
+        if (yData) {
+          const prevTo   = yData.rates[pair.to];
+          const prevFrom = yData.rates[pair.from];
+          const prevPrice = prevTo / prevFrom;
+          changePct = prevPrice ? ((price - prevPrice) / prevPrice) * 100 : null;
+        }
+      }
+      results[key] = { price, changePct };
     }
 
-    const dec = price != null && price >= 1000 ? 0 : 2;
+    return results;
+  } catch (e) {
+    console.warn('Frankfurter error:', e.message);
+    return {};
+  }
+}
 
-    card.classList.remove('loading');
-    this._set(card, '.card-price', Formatter.num(price, dec));
-    this._set(card, '.card-try',   tryText);
-    this._change(card, pct);
-    this._accentLine(card, pct);
-    this._flash(card, pct);
-  },
+// ── TRY conversion ───────────────────────────────────────────
+function toTRY(price, currency) {
+  if (!price || !fxRates.TRY) return null;
+  if (currency === 'TRY') return price;
+  if (currency === 'USD') return price * fxRates.TRY;
+  if (currency === 'EUR' && fxRates.EUR) return price * (fxRates.TRY / fxRates.EUR);
+  if (currency === 'GBP' && fxRates.GBP) return price * (fxRates.TRY / fxRates.GBP);
+  return null;
+}
 
-  updateCommodityCard(asset, quote) {
-    const card = this._card(asset.id);
-    if (!card) return;
+// ── Render card ──────────────────────────────────────────────
+function renderCard(container, label, flag, price, changePct, currency, delay = 0) {
+  const ch = fmtChange(changePct);
+  const sym = currencySymbol(currency);
+  const tryPrice = toTRY(price, currency);
+  const tryLine = tryPrice && currency !== 'TRY'
+    ? `<div class="card-try">₺ ${fmt(tryPrice, 0)}</div>`
+    : '';
 
-    const price  = quote.regularMarketPrice         ?? null;
-    const pct    = quote.regularMarketChangePercent  ?? null;
-    const tryVal = DataService.toTRY(price, 'USD');
+  const card = document.createElement('div');
+  card.className = `card ${ch.cls}`;
+  card.style.animationDelay = `${delay}ms`;
+  card.innerHTML = `
+    <div class="card-header">
+      <span class="card-flag">${flag}</span>
+      <span class="card-label">${label}</span>
+      <span class="card-currency">${currency}</span>
+    </div>
+    <div class="card-price">${price != null ? sym + fmt(price) : '<span class="error-text">No data</span>'}</div>
+    ${tryLine}
+    <div class="card-change ${ch.cls}">${ch.text}</div>
+  `;
+  container.appendChild(card);
+}
 
-    card.classList.remove('loading');
-    this._set(card, '.card-price', Formatter.price(price));
-    this._set(card, '.card-try',   Formatter.try_(tryVal));
-    this._change(card, pct);
-    this._accentLine(card, pct);
-    this._flash(card, pct);
-  },
+function renderForexCard(container, label, price, changePct, delay = 0) {
+  const ch = fmtChange(changePct);
+  const [from, to] = label.split(' / ');
 
-  updateForexCard(pair, rates) {
-    const card = this._card(pair.id);
-    if (!card) return;
+  const card = document.createElement('div');
+  card.className = `forex-card ${ch.cls}`;
+  card.style.animationDelay = `${delay}ms`;
+  card.innerHTML = `
+    <div class="forex-pair">
+      <span class="forex-from">${from}</span>
+      <span class="forex-slash">/</span>
+      <span class="forex-to">${to}</span>
+    </div>
+    <div class="forex-right">
+      <div class="forex-price">${price != null ? fmt(price, 4) : '—'}</div>
+      <div class="forex-change ${ch.cls}">${ch.text}</div>
+    </div>
+  `;
+  container.appendChild(card);
+}
 
-    const rate = rates?.[`${pair.base}/${pair.quote}`] ?? null;
+function renderSkeleton(container, count) {
+  container.innerHTML = Array(count).fill(0).map((_, i) => `
+    <div class="card skeleton" style="animation-delay:${i * 60}ms">
+      <div class="skel-line short"></div>
+      <div class="skel-line long"></div>
+      <div class="skel-line medium"></div>
+    </div>
+  `).join('');
+}
 
-    // Sub-line: spell out the rate in plain English
-    const subLine = rate != null
-      ? `1 ${pair.base} = ${Formatter.num(rate, 4)} ${pair.quote}`
-      : '--';
+// ── Main fetch & render ──────────────────────────────────────
+async function fetchAll() {
+  setStatus('loading');
+  clearTimeout(refreshTimer);
 
-    card.classList.remove('loading');
-    this._set(card, '.card-price', rate != null ? Formatter.num(rate, 4) : 'N/A');
-    this._set(card, '.card-try',   subLine);
-  },
+  const indicesGrid     = document.getElementById('indices-grid');
+  const commoditiesGrid = document.getElementById('commodities-grid');
+  const forexGrid       = document.getElementById('forex-grid');
 
-  // ── Error state ──────────────────────────────────────────────
-  markError(id, label = 'N/A') {
-    const card = this._card(id);
-    if (!card) return;
-    card.classList.remove('loading');
-    card.classList.add('error');
-    this._set(card, '.card-price', label);
-    this._set(card, '.card-try',   '');
-  },
+  renderSkeleton(indicesGrid, ASSETS.indices.length);
+  renderSkeleton(commoditiesGrid, ASSETS.commodities.length);
+  renderSkeleton(forexGrid, ASSETS.forex.length);
 
-  // ── Status bar ───────────────────────────────────────────────
-  setStatus(state) {
-    const dot  = document.getElementById('status-dot');
-    const text = document.getElementById('status-text');
-    if (!dot || !text) return;
-    dot.className  = `status-dot ${state}`;
-    text.className = `status-text ${state}`;
-    text.textContent = { loading: 'Fetching…', live: 'Live', error: 'Error' }[state] ?? state;
-  },
+  let hasErrors = false;
 
-  setLastUpdated() {
-    const el = document.getElementById('last-updated');
-    if (el) el.textContent = `Updated ${new Date().toLocaleTimeString()}`;
-  },
+  // ── Fetch forex first (needed for TRY conversions)
+  const forexData = await fetchForex();
 
-  setCountdown(seconds) {
-    const el = document.getElementById('countdown');
-    if (el) el.textContent = `Next in ${seconds}s`;
-  },
+  // ── Fetch indices in parallel
+  const indexResults = await Promise.all(
+    ASSETS.indices.map(a => fetchStooq(a.symbol))
+  );
 
-  // ── Private helpers ──────────────────────────────────────────
+  indicesGrid.innerHTML = '';
+  ASSETS.indices.forEach((asset, i) => {
+    const { price, changePct } = indexResults[i];
+    if (price == null) hasErrors = true;
+    renderCard(indicesGrid, asset.label, asset.flag, price, changePct, asset.currency, i * 60);
+  });
 
-  _card(id)               { return document.getElementById(`card-${id}`); },
-  _set(card, sel, text)   { const el = card.querySelector(sel); if (el) el.textContent = text; },
+  // ── Fetch commodities in parallel
+  const commResults = await Promise.all(
+    ASSETS.commodities.map(a => fetchStooq(a.symbol))
+  );
 
-  _change(card, pct) {
-    const el = card.querySelector('.card-change');
-    if (!el) return;
-    el.textContent = Formatter.change(pct);
-    el.className   = `card-change ${pct == null ? 'neutral' : pct >= 0 ? 'positive' : 'negative'}`;
-  },
+  commoditiesGrid.innerHTML = '';
+  ASSETS.commodities.forEach((asset, i) => {
+    const { price, changePct } = commResults[i];
+    if (price == null) hasErrors = true;
+    renderCard(commoditiesGrid, asset.label, asset.flag, price, changePct, asset.currency, i * 60);
+  });
 
-  _accentLine(card, pct) {
-    if (pct == null) return;
-    card.classList.toggle('positive', pct >= 0);
-    card.classList.toggle('negative', pct < 0);
-  },
+  // ── Render forex
+  forexGrid.innerHTML = '';
+  ASSETS.forex.forEach((pair, i) => {
+    const key = `${pair.from}/${pair.to}`;
+    const data = forexData[key] || { price: null, changePct: null };
+    renderForexCard(forexGrid, pair.label, data.price, data.changePct, i * 60);
+  });
 
-  _flash(card, pct) {
-    if (pct == null) return;
-    const cls = pct >= 0 ? 'flash-green' : 'flash-red';
-    card.classList.remove('flash-green', 'flash-red');
-    void card.offsetWidth; // force reflow so animation re-triggers
-    card.classList.add(cls);
-    card.addEventListener('animationend', () => card.classList.remove(cls), { once: true });
-  },
-};
+  // ── Update status
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('tr-TR', { hour12: false });
+  document.getElementById('last-updated').textContent = `Updated ${timeStr}`;
+  setStatus(hasErrors ? 'partial' : 'live');
 
-// ================================================================
-// SECTION 4 — Dashboard
-// Main controller: bootstrap, refresh loop, countdown ticker.
-// ================================================================
+  // Schedule next refresh (60 seconds)
+  refreshTimer = setTimeout(fetchAll, 60000);
+  updateCountdown(60);
+}
 
-const Dashboard = {
+// ── Countdown ────────────────────────────────────────────────
+let countdownTimer = null;
+function updateCountdown(seconds) {
+  clearInterval(countdownTimer);
+  let s = seconds;
+  const el = document.getElementById('next-refresh');
+  if (!el) return;
+  el.textContent = `Next in ${s}s`;
+  countdownTimer = setInterval(() => {
+    s--;
+    if (s <= 0) { clearInterval(countdownTimer); return; }
+    el.textContent = `Next in ${s}s`;
+  }, 1000);
+}
 
-  _secondsLeft:  0,
-  _tickInterval: null,
+// ── Status dot ───────────────────────────────────────────────
+function setStatus(state) {
+  const dot  = document.getElementById('status-dot');
+  const text = document.getElementById('status-text');
+  if (!dot || !text) return;
+  dot.className = `status-dot ${state}`;
+  text.textContent = state === 'loading' ? 'Loading' : state === 'partial' ? 'Partial' : 'Live';
+  text.className = `status-text ${state}`;
+}
 
-  init() {
-    this._buildSkeletons();
-    this.refresh();
-    this._startCountdown();
-  },
+// ── Init ─────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  startClock();
+  fetchAll();
 
-  _buildSkeletons() {
-    const ig = document.getElementById('indices-grid');
-    const cg = document.getElementById('commodities-grid');
-    const fg = document.getElementById('forex-grid');
-    CONFIG.INDICES.forEach(a    => ig.appendChild(Renderer.buildIndexCard(a)));
-    CONFIG.COMMODITIES.forEach(a => cg.appendChild(Renderer.buildCommodityCard(a)));
-    CONFIG.FOREX.forEach(p      => fg.appendChild(Renderer.buildForexCard(p)));
-  },
-
-  async refresh() {
-    Renderer.setStatus('loading');
-
-    // ── 1. Forex (Frankfurter — no proxy needed) ────────────────
-    // Must run first: rates are needed for TRY conversions below.
-    try {
-      const rates = await DataService.fetchForex();
-      CONFIG.FOREX.forEach(pair => Renderer.updateForexCard(pair, rates));
-    } catch (err) {
-      console.error('[Forex]', err);
-      CONFIG.FOREX.forEach(p => Renderer.markError(p.id, 'Unavail.'));
-    }
-
-    // ── 2. Indices + Commodities (single Yahoo Finance batch) ───
-    // Combining both into one API call is more efficient and avoids
-    // Yahoo's per-second rate limits.
-    const allMarket  = [...CONFIG.INDICES, ...CONFIG.COMMODITIES];
-    const allSymbols = allMarket.map(a => a.symbol);
-
-    try {
-      const quotes = await DataService.fetchYahoo(allSymbols);
-
-      // Match each quote back to its config entry by symbol
-      // (case-insensitive — Yahoo may normalise casing).
-      const bySymbol = {};
-      quotes.forEach(q => { bySymbol[q.symbol?.toUpperCase()] = q; });
-
-      CONFIG.INDICES.forEach(asset => {
-        const q = bySymbol[asset.symbol.toUpperCase()];
-        if (q) Renderer.updateIndexCard(asset, q);
-        else   Renderer.markError(asset.id, 'N/A');
-      });
-
-      CONFIG.COMMODITIES.forEach(asset => {
-        const q = bySymbol[asset.symbol.toUpperCase()];
-        if (q) Renderer.updateCommodityCard(asset, q);
-        else   Renderer.markError(asset.id, 'N/A');
-      });
-
-    } catch (err) {
-      console.error('[Yahoo Finance]', err);
-      allMarket.forEach(a => Renderer.markError(a.id, 'Error'));
-    }
-
-    Renderer.setStatus('live');
-    Renderer.setLastUpdated();
-    this._secondsLeft = CONFIG.REFRESH_INTERVAL / 1000;
-    Renderer.setCountdown(this._secondsLeft);
-  },
-
-  _startCountdown() {
-    this._secondsLeft = CONFIG.REFRESH_INTERVAL / 1000;
-    this._tickInterval = setInterval(() => {
-      this._secondsLeft = Math.max(0, this._secondsLeft - 1);
-      Renderer.setCountdown(this._secondsLeft);
-      if (this._secondsLeft === 0) this.refresh();
-    }, 1000);
-  },
-};
-
-// ── Bootstrap ─────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => Dashboard.init());
+  const btn = document.getElementById('refresh-btn');
+  if (btn) btn.addEventListener('click', () => {
+    clearTimeout(refreshTimer);
+    clearInterval(countdownTimer);
+    fetchAll();
+  });
+});
