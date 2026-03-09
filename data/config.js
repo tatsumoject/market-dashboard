@@ -7,11 +7,11 @@ const CONFIG = {
   INDICES: [
     { id: 'sp500',     name: 'S&P 500',      symbol: 'SP:SPX'         },
     { id: 'nasdaq',    name: 'NASDAQ 100',    symbol: 'NASDAQ:NDX'     },
-    { id: 'bist100',   name: 'BIST 100',      symbol: 'INDEX:XU100'    },
+    { id: 'bist100',   name: 'BIST 100',      symbol: 'INDEX:BIST100'  },
     { id: 'nikkei',    name: 'Nikkei 225',    symbol: 'TVC:NI225'      },
-    { id: 'eurostoxx', name: 'Euro Stoxx 50', symbol: 'EURONEXT:SX5E'  },
+    { id: 'eurostoxx', name: 'Euro Stoxx 50', symbol: 'TVC:SX5E'       },
     { id: 'dax',       name: 'DAX',           symbol: 'XETR:DAX'       },
-    { id: 'ftse',      name: 'FTSE 100',      symbol: 'FOREXCOM:UKXGBP'},
+    { id: 'ftse',      name: 'FTSE 100',      symbol: 'TVC:UKX'        },
     { id: 'moex',      name: 'MOEX',          symbol: 'MOEX:IMOEX'     },
   ],
 
