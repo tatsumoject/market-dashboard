@@ -147,13 +147,13 @@ const Renderer = {
     card.innerHTML = `
       <div class="card-header">
         <span class="card-name">${asset.name}</span>
-        <span class="card-badge index">${asset.currency}</span>
+        <span class="card-badge index">${asset.region}</span>
       </div>
       <div class="card-price"></div>
       <div class="card-try"></div>
       <div class="card-footer">
         <span class="card-change neutral"></span>
-        <span class="card-region">${asset.region}</span>
+        <span class="card-region">pts</span>
       </div>`;
     return card;
   },
