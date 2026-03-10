@@ -9,20 +9,20 @@ let countdownId   = null;
 // ── Proxy + symbol map ────────────────────────────────────────
 const ALL_ASSETS = [...CONFIG.INDICES, ...CONFIG.COMMODITIES];
 
-const PROXY_URL     = 'https://market-proxy-4jk8.onrender.com';
-const YAHOO_SYMBOLS = '^GSPC,^NDX,XU100.IS,GC=F,SI=F,BZ=F,PL=F,HG=F,ALI=F';
+const PROXY_URL   = 'https://market-proxy-4jk8.onrender.com';
+const FMP_SYMBOLS = 'SPY,QQQ,XU100.IS,GCUSD,SIUSD,BZUSD,PLUSD,HGUSD,ALIUSD';
 
-// Yahoo symbol → CONFIG symbol (used as key in lastPrices / renderAll)
-const YAHOO_MAP = {
-  '^GSPC':    'SPX',
-  '^NDX':     'NDX',
+// FMP symbol → CONFIG symbol (key in lastPrices / renderAll)
+const FMP_MAP = {
+  'SPY':      'SPX',
+  'QQQ':      'NDX',
   'XU100.IS': 'XU100',
-  'GC=F':     'XAU/USD',
-  'SI=F':     'XAG/USD',
-  'BZ=F':     'BRENT',
-  'PL=F':     'XPT/USD',
-  'HG=F':     'XCU/USD',
-  'ALI=F':    'ALI/USD',
+  'GCUSD':    'XAU/USD',
+  'SIUSD':    'XAG/USD',
+  'BZUSD':    'BRENT',
+  'PLUSD':    'XPT/USD',
+  'HGUSD':    'XCU/USD',
+  'ALIUSD':   'ALI/USD',
 };
 
 // ── Number formatting ─────────────────────────────────────────
@@ -128,22 +128,21 @@ function renderAll(prices, forex) {
   if (fg) fg.innerHTML = CONFIG.FOREX.map(p => forexCard(p, forex[`${p.from}/${p.to}`])).join('');
 }
 
-// ── Yahoo Finance fetch via proxy ─────────────────────────────
+// ── FMP fetch via proxy ───────────────────────────────────────
 async function fetchMarket() {
   const response = await fetch(
-    `${PROXY_URL}/quote?symbols=${encodeURIComponent(YAHOO_SYMBOLS)}`
+    `${PROXY_URL}/quote?symbols=${encodeURIComponent(FMP_SYMBOLS)}`
   );
   if (!response.ok) throw new Error(`Proxy error ${response.status}`);
 
-  const data    = await response.json();
-  const results = data.quoteResponse.result;
+  const results = await response.json(); // FMP returns a flat array
 
   const out = {};
   for (const item of results) {
-    const configSym = YAHOO_MAP[item.symbol];
+    const configSym = FMP_MAP[item.symbol];
     if (!configSym) continue;
-    const price = item.regularMarketPrice        ?? null;
-    const pct   = item.regularMarketChangePercent ?? null;
+    const price = item.price              ?? null;
+    const pct   = item.changesPercentage  ?? null;
     out[configSym] = { price, pct, stale: false };
   }
   return out;
