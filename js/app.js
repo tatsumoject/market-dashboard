@@ -19,16 +19,31 @@ function skeletons(gridId, n) {
 }
 
 function assetCard(asset, data) {
-  const { symbol, label, currency } = asset;
+  const { symbol, label, sublabel } = asset;
   const price = data?.price ?? null;
-  const pct = data?.pct ?? null;
+  const pct   = data?.pct   ?? null;
   const stale = data?.stale ?? false;
-  const dir = pctDir(pct);
-  const dec = symbol === 'XAU/USD' ? 2 : 2;
-  const priceStr = price === null ? '—' : '$' + fmt(price, dec);
-  const pctStr = pct === null ? '— %' : (pct >= 0 ? '▲ ' : '▼ ') + Math.abs(pct).toFixed(2) + '%';
-  let sub = (price !== null && usdTry && currency === 'USD') ? `<div class="card-sub">≈ ₺${fmt(price * usdTry, 0)}</div>` : '';
-  return `<div class="card ${dir}"><div class="card-label">${label}${stale ? '<span class="stale-dot">●</span>' : ''}</div><div class="card-price">${priceStr}</div><div class="card-pct ${dir}">${pctStr}</div>${sub}</div>`;
+  const dir   = pctDir(pct);
+
+  // No $ prefix for Gold — sublabel already identifies the instrument
+  const isCommodity = CONFIG.COMMODITIES.some(c => c.symbol === symbol);
+  const priceStr = price === null ? '—'
+    : isCommodity ? fmt(price, 2)
+    : '$' + fmt(price, 2);
+
+  const pctStr = pct === null ? '— %'
+    : (pct >= 0 ? '▲ ' : '▼ ') + Math.abs(pct).toFixed(2) + '%';
+
+  // TRY equivalent only on commodity cards
+  const sub = (isCommodity && price !== null && usdTry)
+    ? `<div class="card-sub">≈ ₺${fmt(price * usdTry, 0)}</div>`
+    : '';
+
+  const sublabelHtml = sublabel
+    ? `<div class="card-sublabel">${sublabel}</div>`
+    : '';
+
+  return `<div class="card ${dir}"><div class="card-label">${label}${stale ? '<span class="stale-dot">●</span>' : ''}</div>${sublabelHtml}<div class="card-price">${priceStr}</div><div class="card-pct ${dir}">${pctStr}</div>${sub}</div>`;
 }
 
 function forexCard(pair, data) {

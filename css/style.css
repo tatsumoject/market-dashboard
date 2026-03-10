@@ -253,6 +253,15 @@ header {
   gap: 6px;
 }
 
+.card-sublabel {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--txt-dim);
+  letter-spacing: .06em;
+  margin-top: -6px;
+  margin-bottom: 10px;
+}
+
 .card-price {
   font-family: var(--mono);
   font-size: 22px;
