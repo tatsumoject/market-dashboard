@@ -1,35 +1,26 @@
-// ================================================================
-// data/config.js — TradingView symbol configuration
-// ================================================================
-
 const CONFIG = {
-  // ── Global Indices ─────────────────────────────────────────
+  TWELVEDATA_API_KEY: 'YOUR_KEY_HERE',
+  REFRESH_INTERVAL: 210000,
+
   INDICES: [
-    { id: 'sp500',     name: 'S&P 500',      symbol: 'SP:SPX'         },
-    { id: 'nasdaq',    name: 'NASDAQ 100',    symbol: 'NASDAQ:NDX'     },
-    { id: 'bist100',   name: 'BIST 100',      symbol: 'INDEX:XU100'  },
-    { id: 'nikkei',    name: 'Nikkei 225',    symbol: 'TVC:NI225'      },
-    { id: 'eurostoxx', name: 'Euro Stoxx 50', symbol: 'TVC:SX5E'       },
-    { id: 'dax',       name: 'DAX',           symbol: 'XETR:DAX'       },
-    { id: 'ftse',      name: 'FTSE 100',      symbol: 'TVC:UKX'        },
-    { id: 'moex',      name: 'MOEX',          symbol: 'MOEX:IMOEX'     },
+    { symbol: 'SPX',   label: 'S&P 500',    currency: 'USD' },
+    { symbol: 'NDX',   label: 'NASDAQ 100', currency: 'USD' },
+    { symbol: 'XU100', label: 'BIST 100',   currency: 'TRY' },
   ],
 
-  // ── Commodities ────────────────────────────────────────────
   COMMODITIES: [
-    { id: 'gold',      name: 'Gold',      symbol: 'TVC:GOLD'      },
-    { id: 'silver',    name: 'Silver',    symbol: 'TVC:SILVER'    },
-    { id: 'brent',     name: 'Brent Oil', symbol: 'TVC:UKOIL'     },
-    { id: 'platinum',  name: 'Platinum',  symbol: 'TVC:PLATINUM'  },
-    { id: 'copper',    name: 'Copper',    symbol: 'TVC:COPPER'    },
-    { id: 'aluminum',  name: 'Aluminum',  symbol: 'TVC:ALUMINUM'  },
+    { symbol: 'XAU/USD', label: 'Gold',      currency: 'USD' },
+    { symbol: 'XAG/USD', label: 'Silver',    currency: 'USD' },
+    { symbol: 'BRENT',   label: 'Brent Oil', currency: 'USD' },
+    { symbol: 'XPT/USD', label: 'Platinum',  currency: 'USD' },
+    { symbol: 'XCU/USD', label: 'Copper',    currency: 'USD' },
+    { symbol: 'ALI/USD', label: 'Aluminum',  currency: 'USD' },
   ],
 
-  // ── Forex Pairs ────────────────────────────────────────────
   FOREX: [
-    { id: 'usdtry', name: 'USD / TRY', symbol: 'FX:USDTRY' },
-    { id: 'eurtry', name: 'EUR / TRY', symbol: 'FX:EURTRY' },
-    { id: 'eurusd', name: 'EUR / USD', symbol: 'FX:EURUSD' },
-    { id: 'gbpusd', name: 'GBP / USD', symbol: 'FX:GBPUSD' },
+    { from: 'USD', to: 'TRY', label: 'USD / TRY' },
+    { from: 'EUR', to: 'TRY', label: 'EUR / TRY' },
+    { from: 'EUR', to: 'USD', label: 'EUR / USD' },
+    { from: 'GBP', to: 'USD', label: 'GBP / USD' },
   ],
 };

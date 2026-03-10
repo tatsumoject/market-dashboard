@@ -11,55 +11,48 @@
 <body>
 <div class="wrap">
 
-  <!-- ── Header ── -->
   <header>
     <div class="logo">MARKET<span>WATCH</span></div>
     <div class="hdr-right">
+      <span id="last-updated"></span>
       <div id="clock"></div>
       <div class="live-badge">
-        <div class="live-dot"></div>
-        <span class="live-txt">Live</span>
+        <div id="status-dot" class="live-dot"></div>
+        <span id="status-text" class="live-txt">Live</span>
+      </div>
+      <div class="countdown-badge">
+        <span class="countdown-label">Next</span>
+        <span id="countdown">—</span>
       </div>
     </div>
   </header>
 
-  <div class="meta">
-    <span class="meta-txt">Real-time data via TradingView · Prices may be delayed 15 min</span>
-  </div>
-
   <!-- Global Indices -->
   <section class="section">
-    <div class="sec-hdr">
-      <span class="sec-title">Global Indices</span>
-    </div>
+    <div class="sec-hdr"><span class="sec-title">Global Indices</span></div>
     <div id="indices-grid" class="grid"></div>
   </section>
 
   <!-- Commodities -->
   <section class="section">
-    <div class="sec-hdr">
-      <span class="sec-title">Commodities</span>
-    </div>
+    <div class="sec-hdr"><span class="sec-title">Commodities</span></div>
     <div id="commodities-grid" class="grid"></div>
   </section>
 
   <!-- Forex -->
   <section class="section">
-    <div class="sec-hdr">
-      <span class="sec-title">Currency Pairs</span>
-    </div>
+    <div class="sec-hdr"><span class="sec-title">Currency Pairs</span></div>
     <div id="forex-grid" class="forex-grid"></div>
   </section>
 
-  <!-- Footer -->
   <footer>
-    <span>Personal dashboard · Data provided by TradingView</span>
+    <span>Personal dashboard · Twelve Data + Frankfurter API · Refreshes every 3.5 min</span>
     <span class="ftr-logo">tatsumoject</span>
   </footer>
 
 </div>
 
-<script src="data/config.js?v=2"></script>
-<script src="js/app.js?v=2"></script>
+<script src="data/config.js?v=3"></script>
+<script src="js/app.js?v=3"></script>
 </body>
 </html>
