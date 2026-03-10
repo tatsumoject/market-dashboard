@@ -100,7 +100,7 @@ async function fetchIndices() {
 async function fetchCommodities() {
   const symbols = ['XAU', 'XAG', 'XPT', 'HG'];
   const results = await Promise.allSettled(
-    symbols.map(s => fetch(`https://gold-api.com/price/${s}`).then(r => r.json()))
+    symbols.map(s => fetch(`https://api.gold-api.com/price/${s}`).then(r => r.json()))
   );
   const out = {};
   results.forEach((res, i) => {
