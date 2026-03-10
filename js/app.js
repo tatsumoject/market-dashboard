@@ -82,16 +82,18 @@ function renderAll(prices, forex) {
 // ── Indices fetch (Twelve Data via proxy) ─────────────────────
 async function fetchIndices() {
   const [priceRes, eodRes] = await Promise.all([
-    fetch(`${CONFIG.PROXY_URL}/quote?symbols=SPY%2CQQQ`).then(r => r.json()),
-    fetch(`${CONFIG.PROXY_URL}/eod?symbols=SPY%2CQQQ`).then(r => r.json()),
+    fetch(`${CONFIG.PROXY_URL}/quote?symbols=SPY%2CQQQ`).then(r => r.json()).catch(() => ({})),
+    fetch(`${CONFIG.PROXY_URL}/eod?symbols=SPY%2CQQQ`).then(r => r.json()).catch(() => ({})),
   ]);
   const out = {};
   for (const sym of ['SPY', 'QQQ']) {
-    const price = parseFloat(priceRes[sym]?.price);
-    const eod   = parseFloat(eodRes[sym]?.close);
-    const pct   = (!isNaN(price) && !isNaN(eod) && eod !== 0)
-      ? ((price - eod) / eod) * 100 : null;
-    out[sym] = { price: isNaN(price) ? null : price, pct, stale: false };
+    const livePrice = parseFloat(priceRes[sym]?.price);
+    const eod       = parseFloat(eodRes[sym]?.close);
+    // Fall back to EOD close if live quote is unavailable
+    const price     = !isNaN(livePrice) ? livePrice : (!isNaN(eod) ? eod : null);
+    const pct       = (!isNaN(livePrice) && !isNaN(eod) && eod !== 0)
+      ? ((livePrice - eod) / eod) * 100 : null;
+    out[sym] = { price, pct, stale: false };
   }
   return out;
 }
@@ -105,19 +107,18 @@ async function fetchCommodities() {
     Promise.allSettled(
       symbols.map(s => fetch(`https://api.gold-api.com/price/${s}`, { cache: 'no-store' }).then(r => r.json()))
     ),
-    fetch(`${CONFIG.PROXY_URL}/eod?symbols=XAU%2FUSD%2CXAG%2FUSD%2CXPT%2FUSD`).then(r => r.json()).catch(() => ({})),
+    fetch(`${CONFIG.PROXY_URL}/eod?symbols=XAU%2FUSD`, { cache: 'no-store' }).then(r => r.json()).catch(() => ({})),
   ]);
 
-  // EOD symbol map: gold-api key → Twelve Data key
-  const eodMap = { XAU: 'XAU/USD', XAG: 'XAG/USD', XPT: 'XPT/USD' };
+  // Only XAU/USD EOD is available on the free tier
+  const eodMap = { XAU: parseFloat(eodRes['XAU/USD']?.close) };
 
   const out = {};
   priceResults.forEach((res, i) => {
     const sym = symbols[i];
     if (res.status === 'fulfilled' && res.value?.price) {
       const price    = res.value.price;
-      const eodKey   = eodMap[sym];
-      const eodClose = eodKey ? parseFloat(eodRes[eodKey]?.close) : NaN;
+      const eodClose = eodMap[sym] ?? NaN;
       const pct      = (!isNaN(eodClose) && eodClose !== 0)
         ? ((price - eodClose) / eodClose) * 100 : null;
       out[sym] = { price, pct, stale: false };
