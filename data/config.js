@@ -1,19 +1,13 @@
 const CONFIG = {
-  REFRESH_INTERVAL: 210000,
+  REFRESH_INTERVAL: 300000,
 
   INDICES: [
-    { symbol: 'SPX',   label: 'S&P 500',    currency: 'USD' },
-    { symbol: 'NDX',   label: 'NASDAQ 100', currency: 'USD' },
-    { symbol: 'XU100', label: 'BIST 100',   currency: 'TRY' },
+    { symbol: 'SPY',     label: 'S&P 500',    currency: 'USD', note: 'via SPY ETF' },
+    { symbol: 'QQQ',     label: 'NASDAQ 100', currency: 'USD', note: 'via QQQ ETF' },
   ],
 
   COMMODITIES: [
-    { symbol: 'XAU/USD', label: 'Gold',      currency: 'USD' },
-    { symbol: 'XAG/USD', label: 'Silver',    currency: 'USD' },
-    { symbol: 'BRENT',   label: 'Brent Oil', currency: 'USD' },
-    { symbol: 'XPT/USD', label: 'Platinum',  currency: 'USD' },
-    { symbol: 'XCU/USD', label: 'Copper',    currency: 'USD' },
-    { symbol: 'ALI/USD', label: 'Aluminum',  currency: 'USD' },
+    { symbol: 'XAU/USD', label: 'Gold',       currency: 'USD' },
   ],
 
   FOREX: [
