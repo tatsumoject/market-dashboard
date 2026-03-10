@@ -99,14 +99,28 @@ async function fetchIndices() {
 // ── Commodities fetch (gold-api.com, no key) ──────────────────
 async function fetchCommodities() {
   const symbols = ['XAU', 'XAG', 'XPT', 'HG'];
-  const results = await Promise.allSettled(
-    symbols.map(s => fetch(`https://api.gold-api.com/price/${s}`).then(r => r.json()))
-  );
+
+  // Fetch current prices + EOD closes (for % change) in parallel
+  const [priceResults, eodRes] = await Promise.all([
+    Promise.allSettled(
+      symbols.map(s => fetch(`https://api.gold-api.com/price/${s}?_=${Date.now()}`).then(r => r.json()))
+    ),
+    fetch(`${CONFIG.PROXY_URL}/eod?symbols=XAU%2FUSD%2CXAG%2FUSD%2CXPT%2FUSD`).then(r => r.json()).catch(() => ({})),
+  ]);
+
+  // EOD symbol map: gold-api key → Twelve Data key
+  const eodMap = { XAU: 'XAU/USD', XAG: 'XAG/USD', XPT: 'XPT/USD' };
+
   const out = {};
-  results.forEach((res, i) => {
+  priceResults.forEach((res, i) => {
     const sym = symbols[i];
     if (res.status === 'fulfilled' && res.value?.price) {
-      out[sym] = { price: res.value.price, pct: null, stale: false };
+      const price    = res.value.price;
+      const eodKey   = eodMap[sym];
+      const eodClose = eodKey ? parseFloat(eodRes[eodKey]?.close) : NaN;
+      const pct      = (!isNaN(eodClose) && eodClose !== 0)
+        ? ((price - eodClose) / eodClose) * 100 : null;
+      out[sym] = { price, pct, stale: false };
     } else {
       out[sym] = { price: null, pct: null, stale: true };
     }
