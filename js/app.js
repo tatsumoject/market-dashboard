@@ -6,9 +6,24 @@ let lastForex     = {};   // "A/B"   → { rate, pct, stale }
 let usdTry        = null;
 let countdownId   = null;
 
-// ── Symbol list for batch API calls ───────────────────────────
-const ALL_ASSETS  = [...CONFIG.INDICES, ...CONFIG.COMMODITIES];
-const SYMBOL_LIST = ALL_ASSETS.map(a => a.symbol).join(',');
+// ── Proxy + symbol map ────────────────────────────────────────
+const ALL_ASSETS = [...CONFIG.INDICES, ...CONFIG.COMMODITIES];
+
+const PROXY_URL     = 'https://market-proxy-4jk8.onrender.com';
+const YAHOO_SYMBOLS = '^GSPC,^NDX,XU100.IS,GC=F,SI=F,BZ=F,PL=F,HG=F,ALI=F';
+
+// Yahoo symbol → CONFIG symbol (used as key in lastPrices / renderAll)
+const YAHOO_MAP = {
+  '^GSPC':    'SPX',
+  '^NDX':     'NDX',
+  'XU100.IS': 'XU100',
+  'GC=F':     'XAU/USD',
+  'SI=F':     'XAG/USD',
+  'BZ=F':     'BRENT',
+  'PL=F':     'XPT/USD',
+  'HG=F':     'XCU/USD',
+  'ALI=F':    'ALI/USD',
+};
 
 // ── Number formatting ─────────────────────────────────────────
 function fmt(n, dec) {
@@ -113,34 +128,23 @@ function renderAll(prices, forex) {
   if (fg) fg.innerHTML = CONFIG.FOREX.map(p => forexCard(p, forex[`${p.from}/${p.to}`])).join('');
 }
 
-// ── Twelve Data fetch ─────────────────────────────────────────
+// ── Yahoo Finance fetch via proxy ─────────────────────────────
 async function fetchMarket() {
-  const key  = CONFIG.TWELVEDATA_API_KEY;
-  const base = 'https://api.twelvedata.com';
-  const syms = SYMBOL_LIST;
+  const response = await fetch(
+    `${PROXY_URL}/quote?symbols=${encodeURIComponent(YAHOO_SYMBOLS)}`
+  );
+  if (!response.ok) throw new Error(`Proxy error ${response.status}`);
 
-  const [priceRes, eodRes] = await Promise.all([
-    fetch(`${base}/price?symbol=${syms}&apikey=${key}`),
-    fetch(`${base}/eod?symbol=${syms}&apikey=${key}`),
-  ]);
-
-  if (!priceRes.ok || !eodRes.ok) throw new Error('Twelve Data error');
-
-  const [priceJson, eodJson] = await Promise.all([priceRes.json(), eodRes.json()]);
+  const data    = await response.json();
+  const results = data.quoteResponse.result;
 
   const out = {};
-  for (const asset of ALL_ASSETS) {
-    const s = asset.symbol;
-    // Batch response: keyed by symbol. Single-symbol response is flat.
-    const pd = ALL_ASSETS.length === 1 ? priceJson : priceJson[s];
-    const ed = ALL_ASSETS.length === 1 ? eodJson   : eodJson[s];
-
-    const price = pd?.price && pd.status !== 'error' ? parseFloat(pd.price) : null;
-    const prev  = ed?.close && ed.status !== 'error' ? parseFloat(ed.close) : null;
-    const pct   = price !== null && prev !== null && prev !== 0
-      ? ((price - prev) / prev) * 100 : null;
-
-    out[s] = { price: isFinite(price) ? price : null, pct, stale: false };
+  for (const item of results) {
+    const configSym = YAHOO_MAP[item.symbol];
+    if (!configSym) continue;
+    const price = item.regularMarketPrice        ?? null;
+    const pct   = item.regularMarketChangePercent ?? null;
+    out[configSym] = { price, pct, stale: false };
   }
   return out;
 }
