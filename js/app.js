@@ -103,7 +103,7 @@ async function fetchCommodities() {
   // Fetch current prices + EOD closes (for % change) in parallel
   const [priceResults, eodRes] = await Promise.all([
     Promise.allSettled(
-      symbols.map(s => fetch(`https://api.gold-api.com/price/${s}?_=${Date.now()}`).then(r => r.json()))
+      symbols.map(s => fetch(`https://api.gold-api.com/price/${s}`, { cache: 'no-store' }).then(r => r.json()))
     ),
     fetch(`${CONFIG.PROXY_URL}/eod?symbols=XAU%2FUSD%2CXAG%2FUSD%2CXPT%2FUSD`).then(r => r.json()).catch(() => ({})),
   ]);
