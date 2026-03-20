@@ -3,15 +3,15 @@ const CONFIG = {
   PROXY_URL: 'https://market-proxy-4jk8.onrender.com',
 
   INDICES: [
-    { symbol: 'SPY', label: 'S&P 500',    sublabel: 'SPY ETF · USD', currency: 'USD' },
-    { symbol: 'QQQ', label: 'NASDAQ 100', sublabel: 'QQQ ETF · USD', currency: 'USD' },
+    { symbol: 'SPY', label: 'S&P 500',    multiplier: 10 },
+    { symbol: 'QQQ', label: 'NASDAQ 100',  multiplier: 41 },
   ],
 
   COMMODITIES: [
-    { symbol: 'XAU', label: 'Gold',     sublabel: 'per oz · USD', currency: 'USD' },
-    { symbol: 'XAG', label: 'Silver',   sublabel: 'per oz · USD', currency: 'USD' },
-    { symbol: 'XPT', label: 'Platinum', sublabel: 'per oz · USD', currency: 'USD' },
-    { symbol: 'HG',  label: 'Copper',   sublabel: 'per lb · USD', currency: 'USD' },
+    { symbol: 'XAU', label: 'Gold',     unit: 'oz' },
+    { symbol: 'XAG', label: 'Silver',   unit: 'oz' },
+    { symbol: 'XPT', label: 'Platinum', unit: 'oz' },
+    { symbol: 'HG',  label: 'Copper',   unit: 'lb' },
   ],
 
   FOREX: [

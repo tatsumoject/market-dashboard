@@ -24,33 +24,49 @@ function skeletons(gridId, n) {
 
 // ── Card builders ─────────────────────────────────────────────
 function assetCard(asset, data) {
-  const { symbol, label, sublabel } = asset;
+  const { symbol, label } = asset;
   const price = data?.price ?? null;
   const pct   = data?.pct   ?? null;
   const stale = data?.stale ?? false;
   const dir   = pctDir(pct);
 
-  const priceStr = price === null ? '—' : '$' + fmt(price, 2);
+  const isIndex     = 'multiplier' in asset;
+  const isCommodity = CONFIG.COMMODITIES.some(c => c.symbol === symbol);
 
+  // Price display
+  let priceStr;
+  if (isIndex) {
+    const displayPrice = price !== null ? price * asset.multiplier : null;
+    priceStr = displayPrice === null ? '—' : fmt(displayPrice, 2);
+  } else if (isCommodity) {
+    priceStr = price === null ? '—' : '$' + fmt(price, 2) + ' / ' + asset.unit;
+  } else {
+    priceStr = price === null ? '—' : '$' + fmt(price, 2);
+  }
+
+  // Percent change display
   const pctStr = pct === null ? '— %'
     : (pct >= 0 ? '▲ ' : '▼ ') + Math.abs(pct).toFixed(2) + '%';
 
   // TRY equivalent only on commodity cards
-  const isCommodity = CONFIG.COMMODITIES.some(c => c.symbol === symbol);
-  const sub = (isCommodity && price !== null && usdTry)
-    ? `<div class="card-sub">≈ ₺${fmt(price * usdTry, 0)}</div>`
-    : '';
-
-  const sublabelHtml = sublabel
-    ? `<div class="card-sublabel">${sublabel}</div>`
-    : '';
+  let tryLine = '';
+  if (isCommodity && price !== null && usdTry) {
+    let tryPrice, tryUnit;
+    if (symbol === 'HG') {
+      tryPrice = price * usdTry * 2.20462;
+      tryUnit = 'kg';
+    } else {
+      tryPrice = price * usdTry / 31.1035;
+      tryUnit = 'gr';
+    }
+    tryLine = `<div class="card-sub">\u20BA${fmt(tryPrice, 2)} / ${tryUnit}</div>`;
+  }
 
   return `<div class="card ${dir}">
     <div class="card-label">${label}${stale ? '<span class="stale-dot">●</span>' : ''}</div>
-    ${sublabelHtml}
     <div class="card-price">${priceStr}</div>
     <div class="card-pct ${dir}">${pctStr}</div>
-    ${sub}
+    ${tryLine}
   </div>`;
 }
 
@@ -118,9 +134,13 @@ async function fetchCommodities() {
     const sym = symbols[i];
     if (res.status === 'fulfilled' && res.value?.price) {
       const price    = res.value.price;
-      const eodClose = eodMap[sym] ?? NaN;
-      const pct      = (!isNaN(eodClose) && eodClose !== 0)
-        ? ((price - eodClose) / eodClose) * 100 : null;
+      // Use previousPrice from gold-api if available, fall back to EOD for XAU
+      const prevPrice = res.value.previousPrice;
+      const eodClose  = eodMap[sym] ?? NaN;
+      const prev = (prevPrice && isFinite(prevPrice) && prevPrice !== 0)
+        ? prevPrice
+        : (!isNaN(eodClose) && eodClose !== 0) ? eodClose : null;
+      const pct = prev !== null ? ((price - prev) / prev) * 100 : null;
       out[sym] = { price, pct, stale: false };
     } else {
       out[sym] = { price: null, pct: null, stale: true };
